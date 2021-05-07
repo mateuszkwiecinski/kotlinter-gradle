@@ -1,7 +1,8 @@
+import org.jetbrains.kotlin.gradle.plugin.KotlinPluginWrapper
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "1.4.32"
+    kotlin("jvm") version "1.5.0"
     id("com.gradle.plugin-publish") version "0.14.0"
     `java-gradle-plugin`
     `maven-publish`
@@ -9,13 +10,15 @@ plugins {
     idea
 }
 
+val kotlinVersion = plugins.getPlugin(KotlinPluginWrapper::class.java).kotlinPluginVersion
+
 repositories {
     mavenCentral()
     google()
 }
 
 val pluginId = "org.jmailen.kotlinter"
-val githubUrl ="https://github.com/jeremymailen/kotlinter-gradle"
+val githubUrl = "https://github.com/jeremymailen/kotlinter-gradle"
 val webUrl = "https://github.com/jeremymailen/kotlinter-gradle"
 val projectDescription = "Lint and formatting for Kotlin using ktlint with configuration-free setup on JVM and Android projects"
 
@@ -25,7 +28,6 @@ description = projectDescription
 
 object Versions {
     const val androidTools = "4.1.3"
-    const val jetbrainsAnnotations = "20.1.0"
     const val junit = "4.13.2"
     const val ktlint = "0.41.0"
     const val mockitoKotlin = "3.1.0"
@@ -49,25 +51,25 @@ dependencies {
 
     testImplementation("junit:junit:${Versions.junit}")
     testImplementation("org.mockito.kotlin:mockito-kotlin:${Versions.mockitoKotlin}")
-    testImplementation("org.jetbrains:annotations:${Versions.jetbrainsAnnotations}")
 }
 
 configurations.configureEach {
     resolutionStrategy.eachDependency {
         if (requested.group == "org.jetbrains.kotlin" && requested.name.startsWith("kotlin")) {
-            useVersion("1.4.32")
+            useVersion(kotlinVersion)
         }
     }
 }
 
 java {
+    withSourcesJar()
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(8))
     }
 }
 
 tasks {
-    val generateVersionProperties = create("generateVersionProperties") {
+    val generateVersionProperties = register("generateVersionProperties") {
         doLast {
             val resourcesDir = sourceSets.main.get().resources.sourceDirectories.asPath
             File(mkdir(resourcesDir), "version.properties").writeText("version = $version")
@@ -96,14 +98,6 @@ tasks {
     }
 }
 
-val sourcesJar by tasks.registering(Jar::class) {
-    dependsOn(JavaPlugin.CLASSES_TASK_NAME)
-    group = JavaBasePlugin.DOCUMENTATION_GROUP
-    description = "Assembles sources JAR"
-    archiveClassifier.set("sources")
-    from(sourceSets.main.get().allSource)
-}
-
 gradlePlugin {
     plugins {
         create("kotlinterPlugin") {
@@ -126,13 +120,9 @@ pluginBundle {
     }
 }
 
-artifacts {
-    add(configurations.archives.name, sourcesJar)
-}
-
 publishing {
-    publications.withType<MavenPublication> {
-        artifact(sourcesJar.get())
+    publications.register<MavenPublication>("mavenJava") {
+        from(components.getByName("java"))
 
         pom {
             name.set(project.name)
